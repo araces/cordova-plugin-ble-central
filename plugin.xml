@@ -64,6 +64,10 @@
             target-dir="src/com/megster/cordova/ble/central"/>
         <source-file src="src/android/UUIDHelper.java"
             target-dir="src/com/megster/cordova/ble/central"/>
+        <source-file src="src/android/KeyboardMapper.java"
+                     target-dir="src/com/megster/cordova/ble/central"/>
+        <source-file src="src/android/Utils.java"
+                     target-dir="src/com/megster/cordova/ble/central"/>
 
     </platform>
 

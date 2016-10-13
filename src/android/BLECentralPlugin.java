@@ -35,9 +35,6 @@ import android.os.Handler;
 
 import android.provider.Settings;
 import android.util.Log;
-import android.widget.Toast;
-
-import com.emdata.emtypewriter.KeyboardMapper;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaArgs;
@@ -49,8 +46,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.LeScanCallback {
@@ -59,8 +54,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final byte format[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     private static final byte clearAlt[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     private static final byte empty[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    public static final String HIDDongle_Service="0000fd00-0000-1000-8000-00805f9b34fb";
-    public static final String HIDDongle_Write_Charateristic="0000fd01-0000-1000-8000-00805f9b34fb";
+    public static final String HIDDongle_Service = "0000fd00-0000-1000-8000-00805f9b34fb";
+    public static final String HIDDongle_Write_Charateristic = "0000fd01-0000-1000-8000-00805f9b34fb";
     //update for keyboard ble --end
 
     // actions
@@ -146,7 +141,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
 
         LOG.d(TAG, "action = " + action);
-        mCallbackContext =callbackContext;
+        mCallbackContext = callbackContext;
         if (bluetoothAdapter == null) {
             Activity activity = cordova.getActivity();
             BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -467,8 +462,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         peripheral.queueWrite(callbackContext, serviceUUID, characteristicUUID, data, writeType);
         */
 
-        IntentFilter filter =new IntentFilter(BluetoothGatt_Service_Ready_Action);
-        cordova.getActivity().registerReceiver(gattReady,filter);
+        IntentFilter filter = new IntentFilter(BluetoothGatt_Service_Ready_Action);
+        cordova.getActivity().registerReceiver(gattReady, filter);
 
         toWriteDate = data;
 
@@ -571,10 +566,9 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         public void onReceive(Context context, Intent intent) {
 
             if (intent.getAction().equals(BluetoothGatt_Service_Ready_Action)) {
-                if("1".equals(toWriteDate[1])){
+                if ("1".equals(toWriteDate[1])) {
                     writeDocGatt(toWriteDate[0]);
-                }
-                else{
+                } else {
                     writeGatt(toWriteDate[0]);
                 }
             }
