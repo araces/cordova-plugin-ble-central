@@ -609,11 +609,11 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                         characteristic.setValue(aformat);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
+                        Thread.sleep(40);
                         characteristic.setValue(clearAlt);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
+                        Thread.sleep(40);
 
                         i++;
                     }
@@ -629,12 +629,12 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                     characteristic.setValue(assciToCode);
 
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
+                    Thread.sleep(40);
 
                 }
                 characteristic.setValue(empty);
                 mBluetoothGatt.writeCharacteristic(characteristic);
-                Thread.sleep(17);
+                Thread.sleep(40);
 
 
             }
@@ -682,18 +682,18 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                         characteristic.setValue(aformat);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
+                        Thread.sleep(40);
                         characteristic.setValue(clearAlt);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
+                        Thread.sleep(40);
 
                         i++;
                     }
 
                     characteristic.setValue(KeyboardMapper.maps.get(132));
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
+                    Thread.sleep(40);
 
                 } else {
                     String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
@@ -707,12 +707,12 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                     characteristic.setValue(assciToCode);
 
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
+                    Thread.sleep(40);
 
                 }
                 characteristic.setValue(empty);
                 mBluetoothGatt.writeCharacteristic(characteristic);
-                Thread.sleep(17);
+                Thread.sleep(40);
 
 
             }
