@@ -18,16 +18,27 @@ import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 
 import android.provider.Settings;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.emdata.emtypewriter.KeyboardMapper;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaArgs;
 import org.apache.cordova.CordovaPlugin;
@@ -38,9 +49,19 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.LeScanCallback {
+
+    //update for keyboard ble --start
+    private static final byte format[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    private static final byte clearAlt[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    private static final byte empty[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    public static final String HIDDongle_Service="0000fd00-0000-1000-8000-00805f9b34fb";
+    public static final String HIDDongle_Write_Charateristic="0000fd01-0000-1000-8000-00805f9b34fb";
+    //update for keyboard ble --end
 
     // actions
     private static final String SCAN = "scan";
@@ -56,7 +77,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final String READ = "read";
     private static final String WRITE = "write";
     private static final String WRITE_WITHOUT_RESPONSE = "writeWithoutResponse";
-    private static final String WRITEEXTRADATA="writeExtraData";
+    private static final String WRITEEXTRADATA = "writeExtraData";
 
     private static final String READ_RSSI = "readRSSI";
 
@@ -64,13 +85,19 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final String STOP_NOTIFICATION = "stopNotification"; // remove characteristic notification
 
     private static final String IS_ENABLED = "isEnabled";
-    private static final String IS_CONNECTED  = "isConnected";
+    private static final String IS_CONNECTED = "isConnected";
 
     private static final String SETTINGS = "showBluetoothSettings";
     private static final String ENABLE = "enable";
 
     private static final String START_STATE_NOTIFICATIONS = "startStateNotifications";
     private static final String STOP_STATE_NOTIFICATIONS = "stopStateNotifications";
+
+    public static final String BluetoothGatt_Service_Ready_Action = "BluetoothGatt_Service_Ready_Action";
+
+    private BluetoothGatt mBluetoothGatt;
+
+    private String[] toWriteDate;
 
     // callbacks
     CallbackContext discoverCallback;
@@ -95,6 +122,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private UUID[] serviceUUIDs;
     private int scanSeconds;
 
+    CallbackContext mCallbackContext;
+
     // Bluetooth state notification
     CallbackContext stateCallback;
     BroadcastReceiver stateReceiver;
@@ -117,7 +146,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
 
         LOG.d(TAG, "action = " + action);
-
+        mCallbackContext =callbackContext;
         if (bluetoothAdapter == null) {
             Activity activity = cordova.getActivity();
             BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -178,17 +207,16 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             byte[] data = args.getArrayBuffer(3);
             int type = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT;
             write(callbackContext, macAddress, serviceUUID, characteristicUUID, data, type);
-        }
-        else if(action.equals(WRITEEXTRADATA)){
+        } else if (action.equals(WRITEEXTRADATA)) {
             String macAddress = args.getString(0);
             UUID serviceUUID = uuidFromString(args.getString(1));
             UUID characteristicUUID = uuidFromString(args.getString(2));
             String writeData = args.getString(3);
             String isWordMode = args.getString(4);
 
-            String[] data=new String[2];
-            data[0]=writeData;
-            data[1] =isWordMode;
+            String[] data = new String[2];
+            data[0] = writeData;
+            data[1] = isWordMode;
 
             int type = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE;
             writeExtraData(callbackContext, macAddress, serviceUUID, characteristicUUID, data, type);
@@ -288,7 +316,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private UUID[] parseServiceUUIDList(JSONArray jsonArray) throws JSONException {
         List<UUID> serviceUUIDs = new ArrayList<UUID>();
 
-        for(int i = 0; i < jsonArray.length(); i++){
+        for (int i = 0; i < jsonArray.length(); i++) {
             String uuidString = jsonArray.getString(i);
             serviceUUIDs.add(uuidFromString(uuidString));
         }
@@ -420,23 +448,306 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     }
 
     private void writeExtraData(CallbackContext callbackContext, String macAddress, UUID serviceUUID, UUID characteristicUUID,
-                                 String[] data, int writeType){
+                                String[] data, int writeType) {
 
-        Peripheral peripheral = peripherals.get(macAddress);
-
+        //Peripheral peripheral = peripherals.get(macAddress);
+        /*
         if (peripheral == null) {
             callbackContext.error("Peripheral " + macAddress + " not found.");
             return;
         }
 
         if (!peripheral.isConnected()) {
-            callbackContext.error("Peripheral " + macAddress + " is not connected.");
-            return;
+            peripheral.connect(callbackContext,cordova.getActivity());
+            //callbackContext.error("Peripheral " + macAddress + " is not connected.");
+            //return;
         }
 
         //peripheral.writeCharacteristic(callbackContext, serviceUUID, characteristicUUID, data, writeType);
         peripheral.queueWrite(callbackContext, serviceUUID, characteristicUUID, data, writeType);
+        */
 
+        IntentFilter filter =new IntentFilter(BluetoothGatt_Service_Ready_Action);
+        cordova.getActivity().registerReceiver(gattReady,filter);
+
+        toWriteDate = data;
+
+        BluetoothManager mBluetoothManager = (BluetoothManager) cordova.getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter mBluetoothAdapter;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            mBluetoothAdapter = mBluetoothManager.getAdapter();
+        } else {
+            mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        }
+
+        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(macAddress);
+        mBluetoothGatt = device.connectGatt(cordova.getActivity(), true, mGattCallback);
+
+    }
+
+    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+        @Override  //当连接上设备或者失去连接时会回调该函数
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) { //连接成功
+                mBluetoothGatt.discoverServices(); //连接成功后就去找出该设备中的服务 private BluetoothGatt mBluetoothGatt;
+
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+
+            }
+        }
+
+        @Override  //当设备是否找到服务时，会回调该函数
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {   //找到服务了nice to meet you ,
+                Log.d(TAG, "onServicesDiscovered received: " + status + "SUCCESS");
+
+                Intent intent = new Intent(BluetoothGatt_Service_Ready_Action);
+                cordova.getActivity().sendBroadcast(intent);
+
+                this.displayGattServices(this.getSupportedGattServices());
+            } else {
+                Log.d(TAG, "onServicesDiscovered received: " + status);
+            }
+        }
+
+        private List<BluetoothGattService> getSupportedGattServices() {
+            if (mBluetoothGatt != null) {
+                return mBluetoothGatt.getServices();
+            }
+
+            return null;
+        }
+
+        private void displayGattServices(List<BluetoothGattService> bluetoothGattServices) {
+
+            for (BluetoothGattService service : bluetoothGattServices) {
+                Log.i(TAG, "UUID is " + service.getUuid());
+                List<BluetoothGattCharacteristic> characteristicses = service.getCharacteristics();
+                for (BluetoothGattCharacteristic characteristics : characteristicses) {
+                    Log.i(TAG, "SUB UUID is \t" + characteristics.getUuid());
+                }
+            }
+
+        }
+
+
+        @Override  //当读取设备时会回调该函数
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+
+
+        }
+
+        @Override //当向设备Descriptor中写数据时，会回调该函数
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            Log.d(TAG, "onDescriptorWriteonDescriptorWrite = " + status + ", descriptor =" + descriptor.getUuid().toString());
+        }
+
+        @Override //设备发出通知时会调用到该接口
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            if (characteristic.getValue() != null) {
+                System.out.println(characteristic.getStringValue(0));
+            }
+            Log.d(TAG, "--------onCharacteristicChanged-----");
+        }
+
+        @Override
+        public void onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status) {
+            Log.d(TAG, "rssi = " + rssi);
+        }
+
+        @Override //当向Characteristic写数据时会回调该函数
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            Log.d(TAG, "--------write success----- status:" + status);
+        }
+
+        ;
+    };
+
+
+    private final BroadcastReceiver gattReady = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            if (intent.getAction().equals(BluetoothGatt_Service_Ready_Action)) {
+                if("1".equals(toWriteDate[1])){
+                    writeDocGatt(toWriteDate[0]);
+                }
+                else{
+                    writeGatt(toWriteDate[0]);
+                }
+            }
+        }
+    };
+
+
+    private void writeGatt(String origion) {
+
+        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
+
+
+        try {
+            BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
+            for (int index = 0; index < origion.length(); index++) {
+                String singleCharacter = origion.substring(index, index + 1);
+
+                byte[] singleBytes = singleCharacter.getBytes("GB18030");
+
+                Integer singleCharacterLength = singleBytes.length;
+                if (singleCharacterLength > 1) {
+                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
+                    String utf8Hex = new String(hex.getBytes("UTF-8"), "UTF-8");
+                    String oct = Integer.toString(Integer.parseInt(utf8Hex, 16));
+
+                    int i = 0;
+                    char[] character = oct.toCharArray();
+                    for (char ch : character) {
+                        byte[] aformat = format.clone();
+                        aformat[1] = 0x04;
+
+                        Integer pad_number = new Integer(String.valueOf(ch));
+                        if (pad_number == 0) {
+                            pad_number = 10;
+                        }
+
+                        aformat[i + 3] = (byte) (pad_number + 88);
+                        characteristic.setValue(aformat);
+
+                        mBluetoothGatt.writeCharacteristic(characteristic);
+                        Thread.sleep(17);
+                        characteristic.setValue(clearAlt);
+
+                        mBluetoothGatt.writeCharacteristic(characteristic);
+                        Thread.sleep(17);
+
+                        i++;
+                    }
+                } else {
+                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
+                    Integer codeInt = Integer.parseInt(hex, 16);
+                    byte[] assciToCode = KeyboardMapper.maps.get(codeInt);
+
+                    if (codeInt == 10) {
+                        assciToCode = KeyboardMapper.maps.get(13);
+                    }
+
+                    characteristic.setValue(assciToCode);
+
+                    mBluetoothGatt.writeCharacteristic(characteristic);
+                    Thread.sleep(17);
+
+                }
+                characteristic.setValue(empty);
+                mBluetoothGatt.writeCharacteristic(characteristic);
+                Thread.sleep(17);
+
+
+            }
+            mBluetoothGatt.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mBluetoothGatt.close();
+            mCallbackContext.error(e.getMessage());
+        }
+
+        mCallbackContext.success();
+
+    }
+
+    private void writeDocGatt(String origion) {
+        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
+
+
+        try {
+            BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
+            for (int index = 0; index < origion.length(); index++) {
+                String singleCharacter = origion.substring(index, index + 1);
+
+                byte[] singleBytes = singleCharacter.getBytes("GB18030");
+
+                Integer singleCharacterLength = singleBytes.length;
+                if (singleCharacterLength > 1) {
+                    String hex = bytesToHexString(singleCharacter.getBytes("UTF-16BE"));
+                    String utf16Hex = new String(hex.getBytes("UTF-16BE"), "UTF-16BE");
+                    String oct = Integer.toString(Integer.parseInt(utf16Hex, 16));
+
+                    int i = 0;
+                    char[] character = oct.toCharArray();
+                    for (char ch : character) {
+                        byte[] aformat = format.clone();
+                        aformat[1] = 0x04;
+
+                        Integer pad_number = new Integer(String.valueOf(ch));
+                        if (pad_number == 0) {
+                            pad_number = 10;
+                        }
+
+                        aformat[i + 3] = (byte) (pad_number + 88);
+                        characteristic.setValue(aformat);
+
+                        mBluetoothGatt.writeCharacteristic(characteristic);
+                        Thread.sleep(17);
+                        characteristic.setValue(clearAlt);
+
+                        mBluetoothGatt.writeCharacteristic(characteristic);
+                        Thread.sleep(17);
+
+                        i++;
+                    }
+
+                    characteristic.setValue(KeyboardMapper.maps.get(132));
+                    mBluetoothGatt.writeCharacteristic(characteristic);
+                    Thread.sleep(17);
+
+                } else {
+                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
+                    Integer codeInt = Integer.parseInt(hex, 16);
+                    byte[] assciToCode = KeyboardMapper.maps.get(codeInt);
+
+                    if (codeInt == 10) {
+                        assciToCode = KeyboardMapper.maps.get(13);
+                    }
+
+                    characteristic.setValue(assciToCode);
+
+                    mBluetoothGatt.writeCharacteristic(characteristic);
+                    Thread.sleep(17);
+
+                }
+                characteristic.setValue(empty);
+                mBluetoothGatt.writeCharacteristic(characteristic);
+                Thread.sleep(17);
+
+
+            }
+            mBluetoothGatt.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mBluetoothGatt.close();
+            mCallbackContext.error(e.getMessage());
+        }
+        mCallbackContext.success();
+
+    }
+
+
+    public static String bytesToHexString(byte[] src) {
+        StringBuilder stringBuilder = new StringBuilder("");
+        if (src == null || src.length <= 0) {
+            return null;
+        }
+        for (int i = 0; i < src.length; i++) {
+            int v = src[i] & 0xFF;
+            String hv = Integer.toHexString(v);
+            if (hv.length() < 2) {
+                stringBuilder.append(0);
+            }
+            stringBuilder.append(hv);
+        }
+        return stringBuilder.toString();
     }
 
 
@@ -473,7 +784,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
     private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds) {
 
-        if(!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
+        if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
             // save info so we can call this method again after permissions are granted
             permissionCallback = callbackContext;
             this.serviceUUIDs = serviceUUIDs;
@@ -488,9 +799,9 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         }
 
         // clear non-connected cached peripherals
-        for(Iterator<Map.Entry<String, Peripheral>> iterator = peripherals.entrySet().iterator(); iterator.hasNext(); ) {
+        for (Iterator<Map.Entry<String, Peripheral>> iterator = peripherals.entrySet().iterator(); iterator.hasNext(); ) {
             Map.Entry<String, Peripheral> entry = iterator.next();
-            if(!entry.getValue().isConnected()) {
+            if (!entry.getValue().isConnected()) {
                 iterator.remove();
             }
         }
@@ -585,16 +896,15 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     /* @Override */
     public void onRequestPermissionResult(int requestCode, String[] permissions,
                                           int[] grantResults) /* throws JSONException */ {
-        for(int result:grantResults) {
-            if(result == PackageManager.PERMISSION_DENIED)
-            {
+        for (int result : grantResults) {
+            if (result == PackageManager.PERMISSION_DENIED) {
                 LOG.d(TAG, "User *rejected* Coarse Location Access");
                 this.permissionCallback.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, PERMISSION_DENIED_ERROR));
                 return;
             }
         }
 
-        switch(requestCode) {
+        switch (requestCode) {
             case REQUEST_ACCESS_COARSE_LOCATION:
                 LOG.d(TAG, "User granted Coarse Location Access");
                 findLowEnergyDevices(permissionCallback, serviceUUIDs, scanSeconds);

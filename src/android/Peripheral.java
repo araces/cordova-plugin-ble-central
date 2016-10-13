@@ -19,6 +19,7 @@ import android.app.Activity;
 import android.bluetooth.*;
 import android.os.Build;
 import android.util.Base64;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.emdata.emtypewriter.KeyboardMapper;
@@ -43,11 +44,7 @@ public class Peripheral extends BluetoothGattCallback {
     //public final static UUID CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB");
     public final static UUID CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = UUIDHelper.uuidFromString("2902");
     private static final String TAG = "Peripheral";
-    //update for keyboard ble --start
-    private static final byte format[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    private static final byte clearAlt[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    private static final byte empty[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    //update for keyboard ble --end
+
     private BluetoothDevice device;
     private byte[] advertisingData;
     private int advertisingRSSI;
@@ -75,7 +72,7 @@ public class Peripheral extends BluetoothGattCallback {
         BluetoothDevice device = getDevice();
         connectCallback = callbackContext;
         if (Build.VERSION.SDK_INT < 23) {
-            gatt = device.connectGatt(activity, false, this);
+            gatt = device.connectGatt(activity, true, this);
         } else {
             gatt = device.connectGatt(activity, false, this, BluetoothDevice.TRANSPORT_LE);
         }
@@ -554,193 +551,9 @@ public class Peripheral extends BluetoothGattCallback {
 
     }
 
-    private void writeExtraCharacteristic(CallbackContext callbackContext, UUID serviceUUID, UUID characteristicUUID, String [] data, int writeType) {
-
-        boolean success = false;
-
-        if (gatt == null) {
-            callbackContext.error("BluetoothGatt is null");
-            return;
-        }
-
-        BluetoothGattService service = gatt.getService(serviceUUID);
-        BluetoothGattCharacteristic characteristic = findWritableCharacteristic(service, characteristicUUID, writeType);
-
-        if (characteristic == null) {
-            callbackContext.error("Characteristic " + characteristicUUID + " not found.");
-        } else {
-           if("1".equals(data[1])){
-               writeTxtGatt(callbackContext,data[0],characteristic);
-           }
-            else{
-               writeDocGatt(callbackContext,data[0],characteristic);
-           }
-        }
-
-    }
-
-    // ExtraData write begin
-    private void writeTxtGatt(CallbackContext callbackContext,String origion,BluetoothGattCharacteristic characteristic) {
-
-        try {
-
-            for (int index = 0; index < origion.length(); index++) {
-                String singleCharacter = origion.substring(index, index + 1);
-
-                byte[] singleBytes = singleCharacter.getBytes("GB18030");
-
-                Integer singleCharacterLength = singleBytes.length;
-                if (singleCharacterLength > 1) {
-                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
-                    String utf8Hex = new String(hex.getBytes("UTF-8"), "UTF-8");
-                    String oct = Integer.toString(Integer.parseInt(utf8Hex, 16));
-
-                    int i = 0;
-                    char[] character = oct.toCharArray();
-                    for (char ch : character) {
-                        byte[] aformat = format.clone();
-                        aformat[1] = 0x04;
-
-                        Integer pad_number = new Integer(String.valueOf(ch));
-                        if (pad_number == 0) {
-                            pad_number = 10;
-                        }
-
-                        aformat[i + 3] = (byte) (pad_number + 88);
-                        characteristic.setValue(aformat);
-
-                        gatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
-                        characteristic.setValue(clearAlt);
-
-                        gatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
-
-                        i++;
-                    }
-                } else {
-                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
-                    Integer codeInt = Integer.parseInt(hex, 16);
-                    byte[] assciToCode = KeyboardMapper.maps.get(codeInt);
-
-                    if (codeInt == 10) {
-                        assciToCode = KeyboardMapper.maps.get(13);
-                    }
-
-                    characteristic.setValue(assciToCode);
-
-                    gatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
-
-                }
-                characteristic.setValue(empty);
-                gatt.writeCharacteristic(characteristic);
-                Thread.sleep(17);
 
 
-            }
-            gatt.close();
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            gatt.close();
-            callbackContext.error(e.getMessage());
-        }
-
-        callbackContext.success();
-    }
-
-    private void writeDocGatt(CallbackContext callbackContext,String origion,BluetoothGattCharacteristic characteristic) {
-
-        try {
-
-            for (int index = 0; index < origion.length(); index++) {
-                String singleCharacter = origion.substring(index, index + 1);
-
-                byte[] singleBytes = singleCharacter.getBytes("GB18030");
-
-                Integer singleCharacterLength = singleBytes.length;
-                if (singleCharacterLength > 1) {
-                    String hex = bytesToHexString(singleCharacter.getBytes("UTF-16BE"));
-                    String utf16Hex = new String(hex.getBytes("UTF-16BE"), "UTF-16BE");
-                    String oct = Integer.toString(Integer.parseInt(utf16Hex, 16));
-
-                    int i = 0;
-                    char[] character = oct.toCharArray();
-                    for (char ch : character) {
-                        byte[] aformat = format.clone();
-                        aformat[1] = 0x04;
-
-                        Integer pad_number = new Integer(String.valueOf(ch));
-                        if (pad_number == 0) {
-                            pad_number = 10;
-                        }
-
-                        aformat[i + 3] = (byte) (pad_number + 88);
-                        characteristic.setValue(aformat);
-
-                        gatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
-                        characteristic.setValue(clearAlt);
-
-                        gatt.writeCharacteristic(characteristic);
-                        Thread.sleep(17);
-
-                        i++;
-                    }
-
-                    characteristic.setValue(KeyboardMapper.maps.get(132));
-                    gatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
-
-                } else {
-                    String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
-                    Integer codeInt = Integer.parseInt(hex, 16);
-                    byte[] assciToCode = KeyboardMapper.maps.get(codeInt);
-
-                    if (codeInt == 10) {
-                        assciToCode = KeyboardMapper.maps.get(13);
-                    }
-
-                    characteristic.setValue(assciToCode);
-
-                    gatt.writeCharacteristic(characteristic);
-                    Thread.sleep(17);
-
-                }
-                characteristic.setValue(empty);
-                gatt.writeCharacteristic(characteristic);
-                Thread.sleep(17);
-
-
-            }
-            gatt.close();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            gatt.close();
-            callbackContext.error(e.getMessage());
-        }
-
-        callbackContext.success();
-    }
-
-    public static String bytesToHexString(byte[] src) {
-        StringBuilder stringBuilder = new StringBuilder("");
-        if (src == null || src.length <= 0) {
-            return null;
-        }
-        for (int i = 0; i < src.length; i++) {
-            int v = src[i] & 0xFF;
-            String hv = Integer.toHexString(v);
-            if (hv.length() < 2) {
-                stringBuilder.append(0);
-            }
-            stringBuilder.append(hv);
-        }
-        return stringBuilder.toString();
-    }
-    //ExtraData write end
 
 
 
@@ -841,13 +654,10 @@ public class Peripheral extends BluetoothGattCallback {
             } else if (command.getType() == BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE) {
                 LOG.d(TAG,"Write No Response " + command.getCharacteristicUUID());
                 bleProcessing = true;
-                //getData not null go normal data selse go ExtraData -----zhaofx update
-                if(null != command.getData()) {
+
+
                     writeCharacteristic(command.getCallbackContext(), command.getServiceUUID(), command.getCharacteristicUUID(), command.getData(), command.getType());
-                }
-                else{
-                    writeExtraCharacteristic(command.getCallbackContext(), command.getServiceUUID(), command.getCharacteristicUUID(), command.getExtraData(), command.getType());
-                }
+
             } else if (command.getType() == BLECommand.REGISTER_NOTIFY) {
                 LOG.d(TAG,"Register Notify " + command.getCharacteristicUUID());
                 bleProcessing = true;

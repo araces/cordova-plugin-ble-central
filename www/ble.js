@@ -111,7 +111,7 @@ module.exports = {
     },
 
     writeExtraData: function (device_id, service_uuid, characteristic_uuid, value, success, failure) {
-        cordova.exec(success, failure, 'BLE', 'writeExtraData', [device_id, service_uuid, characteristic_uuid, value]);
+        cordova.exec(success, failure, 'BLE', 'writeExtraData', [device_id, service_uuid, characteristic_uuid, value[0],value[1]]);
     },
 
     // value must be an ArrayBuffer
