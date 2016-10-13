@@ -56,6 +56,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final String READ = "read";
     private static final String WRITE = "write";
     private static final String WRITE_WITHOUT_RESPONSE = "writeWithoutResponse";
+    private static final String WRITEEXTRADATA="writeExtraData";
 
     private static final String READ_RSSI = "readRSSI";
 
@@ -177,6 +178,20 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             byte[] data = args.getArrayBuffer(3);
             int type = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT;
             write(callbackContext, macAddress, serviceUUID, characteristicUUID, data, type);
+        }
+        else if(action.equals(WRITEEXTRADATA)){
+            String macAddress = args.getString(0);
+            UUID serviceUUID = uuidFromString(args.getString(1));
+            UUID characteristicUUID = uuidFromString(args.getString(2));
+            String writeData = args.getString(3);
+            String isWordMode = args.getString(4);
+
+            String[] data=new String[2];
+            data[0]=writeData;
+            data[1] =isWordMode;
+
+            int type = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE;
+            writeExtraData(callbackContext, macAddress, serviceUUID, characteristicUUID, data, type);
 
         } else if (action.equals(WRITE_WITHOUT_RESPONSE)) {
 
@@ -403,6 +418,27 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         peripheral.queueWrite(callbackContext, serviceUUID, characteristicUUID, data, writeType);
 
     }
+
+    private void writeExtraData(CallbackContext callbackContext, String macAddress, UUID serviceUUID, UUID characteristicUUID,
+                                 String[] data, int writeType){
+
+        Peripheral peripheral = peripherals.get(macAddress);
+
+        if (peripheral == null) {
+            callbackContext.error("Peripheral " + macAddress + " not found.");
+            return;
+        }
+
+        if (!peripheral.isConnected()) {
+            callbackContext.error("Peripheral " + macAddress + " is not connected.");
+            return;
+        }
+
+        //peripheral.writeCharacteristic(callbackContext, serviceUUID, characteristicUUID, data, writeType);
+        peripheral.queueWrite(callbackContext, serviceUUID, characteristicUUID, data, writeType);
+
+    }
+
 
     private void registerNotifyCallback(CallbackContext callbackContext, String macAddress, UUID serviceUUID, UUID characteristicUUID) {
 

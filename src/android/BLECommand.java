@@ -21,6 +21,7 @@ class BLECommand {
     private UUID serviceUUID;
     private UUID characteristicUUID;
     private byte[] data;
+    private String[] extraData;
     private int type;
 
 
@@ -36,6 +37,14 @@ class BLECommand {
         this.serviceUUID = serviceUUID;
         this.characteristicUUID = characteristicUUID;
         this.data = data;
+        this.type = type;
+    }
+
+    public BLECommand(CallbackContext callbackContext, UUID serviceUUID, UUID characteristicUUID, String[] data, int type) {
+        this.callbackContext = callbackContext;
+        this.serviceUUID = serviceUUID;
+        this.characteristicUUID = characteristicUUID;
+        this.extraData = data;
         this.type = type;
     }
 
@@ -57,5 +66,9 @@ class BLECommand {
 
     public byte[] getData() {
         return data;
+    }
+
+    public String[] getExtraData(){
+        return extraData;
     }
 }
