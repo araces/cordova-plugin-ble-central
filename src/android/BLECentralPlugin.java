@@ -665,25 +665,23 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 if (singleCharacterLength > 1) {
                     String hex = bytesToHexString(singleCharacter.getBytes("UTF-16BE"));
                     String utf16Hex = new String(hex.getBytes("UTF-16BE"), "UTF-16BE");
-                    String oct = Integer.toString(Integer.parseInt(utf16Hex, 16));
-
+                    Log.d(TAG, " HEX is " + hex);
                     int i = 0;
-                    char[] character = oct.toCharArray();
+                    char[] character = utf16Hex.toCharArray();
                     for (char ch : character) {
                         byte[] aformat = format.clone();
-                        aformat[1] = 0x04;
 
-                        Integer pad_number = new Integer(String.valueOf(ch));
-                        if (pad_number == 0) {
-                            pad_number = 10;
-                        }
+                        aformat[1] = 0x00;
 
-                        aformat[i + 3] = (byte) (pad_number + 88);
+                        int asciiCode = (int) ch;
+
+                        byte[] byteArray = KeyboardMapper.maps.get(asciiCode);
+                        aformat[i + 3] = byteArray[3];
                         characteristic.setValue(aformat);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
                         Thread.sleep(40);
-                        characteristic.setValue(clearAlt);
+                        characteristic.setValue(empty);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
                         Thread.sleep(40);
