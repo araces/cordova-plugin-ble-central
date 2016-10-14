@@ -19,11 +19,6 @@ import android.app.Activity;
 import android.bluetooth.*;
 import android.os.Build;
 import android.util.Base64;
-import android.util.Log;
-import android.widget.Toast;
-
-import com.emdata.emtypewriter.KeyboardMapper;
-import com.emdata.emtypewriter.Utils;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.LOG;
