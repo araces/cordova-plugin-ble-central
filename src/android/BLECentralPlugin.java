@@ -87,12 +87,15 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
     private static final String START_STATE_NOTIFICATIONS = "startStateNotifications";
     private static final String STOP_STATE_NOTIFICATIONS = "stopStateNotifications";
+    private static final String STOP_SENDINGTO_BLE = "stopSendingtoBle";
 
     public static final String BluetoothGatt_Service_Ready_Action = "BluetoothGatt_Service_Ready_Action";
 
     private BluetoothGatt mBluetoothGatt;
 
     private String[] toWriteDate;
+
+    private boolean isContinueSendToBLE = false;
 
     // callbacks
     CallbackContext discoverCallback;
@@ -211,6 +214,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             String writeData = args.getString(3);
             String isWordMode = args.getString(4);
 
+            isContinueSendToBLE = true;
+
             String[] data = new String[2];
             data[0] = writeData;
             data[1] = isWordMode;
@@ -301,7 +306,12 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             this.reportDuplicates = options.optBoolean("reportDuplicates", false);
             findLowEnergyDevices(callbackContext, serviceUUIDs, -1);
 
-        } else {
+        } else if(action.equals(STOP_SENDINGTO_BLE)){
+
+            isContinueSendToBLE = false;
+
+        }
+        else{
 
             validAction = false;
 
@@ -609,6 +619,15 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
             for (int index = 0; index < origion.length(); index++) {
 
+                if(!isContinueSendToBLE)
+                {
+
+                    mBluetoothGatt.close();
+                    mCallbackContext.error("发送已中断");
+                    break;
+                }
+
+
                 float percent = (float)(index * 100) / fullLength;
                 if(origion.length() == (index -1))
                 {
@@ -692,6 +711,14 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         try {
             BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
             for (int index = 0; index < origion.length(); index++) {
+
+                if(!isContinueSendToBLE)
+                {
+
+                    mBluetoothGatt.close();
+                    mCallbackContext.error("发送已中断");
+                    break;
+                }
 
                 float percent = (float)(index * 100) / fullLength;
 
