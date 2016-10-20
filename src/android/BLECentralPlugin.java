@@ -623,7 +623,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 {
 
                     mBluetoothGatt.close();
-                    mCallbackContext.error("发送已中断");
+                    mCallbackContext.success("发送已中断");
                     break;
                 }
 
@@ -716,7 +716,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 {
 
                     mBluetoothGatt.close();
-                    mCallbackContext.error("发送已中断");
+                    mCallbackContext.success("发送已中断");
                     break;
                 }
 
