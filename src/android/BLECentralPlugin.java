@@ -117,6 +117,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private UUID[] serviceUUIDs;
     private int scanSeconds;
 
+
+
     CallbackContext mCallbackContext;
 
     // Bluetooth state notification
@@ -559,18 +561,38 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         ;
     };
 
-
     private final BroadcastReceiver gattReady = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
 
             if (intent.getAction().equals(BluetoothGatt_Service_Ready_Action)) {
-                if ("1".equals(toWriteDate[1])) {
-                    writeDocGatt(toWriteDate[0]);
-                } else {
-                    writeGatt(toWriteDate[0]);
-                }
+
+                /*
+                new Handler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if ("1".equals(toWriteDate[1])) {
+                            writeDocGatt(toWriteDate[0]);
+                        } else {
+                            writeGatt(toWriteDate[0]);
+                        }
+                    }
+                });
+                */
+
+                Thread thread=new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if ("1".equals(toWriteDate[1])) {
+                            writeDocGatt(toWriteDate[0]);
+                        } else {
+                            writeGatt(toWriteDate[0]);
+                        }
+                    }
+                });
+
+                thread.start();
             }
         }
     };
@@ -580,10 +602,22 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
         BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
 
+        int fullLength = origion.length();
+
 
         try {
             BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
             for (int index = 0; index < origion.length(); index++) {
+
+                float percent = (float)(index * 100) / fullLength;
+                if(origion.length() == (index -1))
+                {
+                    updateBleProgress(100);
+                }
+                else {
+                    updateBleProgress((int) percent);
+                }
+
                 String singleCharacter = origion.substring(index, index + 1);
 
                 byte[] singleBytes = singleCharacter.getBytes("GB18030");
@@ -646,17 +680,29 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             mCallbackContext.error(e.getMessage());
         }
 
-        mCallbackContext.success();
 
+        mCallbackContext.success(100);
     }
 
     private void writeDocGatt(String origion) {
         BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
 
+        int fullLength = origion.length();
 
         try {
             BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
             for (int index = 0; index < origion.length(); index++) {
+
+                float percent = (float)(index * 100) / fullLength;
+
+                if(origion.length() == (index -1))
+                {
+                    updateBleProgress(100);
+                }
+                else {
+                    updateBleProgress((int) percent);
+                }
+
                 String singleCharacter = origion.substring(index, index + 1);
 
                 byte[] singleBytes = singleCharacter.getBytes("GB18030");
@@ -721,7 +767,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             mBluetoothGatt.close();
             mCallbackContext.error(e.getMessage());
         }
-        mCallbackContext.success();
+        mCallbackContext.success(100);
 
     }
 
@@ -906,6 +952,15 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 break;
         }
     }
+
+    private void updateBleProgress(int  progress) {
+        if (mCallbackContext != null) {
+            PluginResult result = new PluginResult(PluginResult.Status.OK, progress);
+            result.setKeepCallback(true);
+            mCallbackContext.sendPluginResult(result);
+        }
+    }
+
 
     private UUID uuidFromString(String uuid) {
         return UUIDHelper.uuidFromString(uuid);
