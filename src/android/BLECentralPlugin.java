@@ -54,8 +54,20 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final byte format[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     private static final byte clearAlt[] = {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     private static final byte empty[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+    private static final byte formatV1[] = {(byte) 0x83, 0x04, 0x00, 0x00};
+    private static final byte clearAltV1[] = {(byte) 0x83, 0x04, 0x00, 0x00};
+    private static final byte emptyV1[] = {(byte) 0x83, 0x00, 0x00, 0x00};
+
+
     public static final String HIDDongle_Service = "0000fd00-0000-1000-8000-00805f9b34fb";
     public static final String HIDDongle_Write_Charateristic = "0000fd01-0000-1000-8000-00805f9b34fb";
+    public static final String HMSoft_Service = "0000ffe0-0000-1000-8000-00805f9b34fb";
+    public static final String HMSoft_Write_Charateristic = "0000ffe1-0000-1000-8000-00805f9b34fb";
+
+    public static final String BLE_VERSION_ONE = "1";
+    public static final String BLE_VERSION_TWO = "2";
+
     //update for keyboard ble --end
 
     // actions
@@ -93,7 +105,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
     private BluetoothGatt mBluetoothGatt;
 
-    private String[] toWriteDate;
+    private String[] toWriteData;
 
     private boolean isContinueSendToBLE = false;
 
@@ -119,7 +131,6 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private CallbackContext permissionCallback;
     private UUID[] serviceUUIDs;
     private int scanSeconds;
-
 
 
     CallbackContext mCallbackContext;
@@ -213,12 +224,14 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             UUID characteristicUUID = uuidFromString(args.getString(2));
             String writeData = args.getString(3);
             String isWordMode = args.getString(4);
+            String bleVersion = args.getString(5);
 
             isContinueSendToBLE = true;
 
-            String[] data = new String[2];
+            String[] data = new String[3];
             data[0] = writeData;
             data[1] = isWordMode;
+            data[2] = bleVersion;
 
             int type = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE;
             writeExtraData(callbackContext, macAddress, serviceUUID, characteristicUUID, data, type);
@@ -306,12 +319,11 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             this.reportDuplicates = options.optBoolean("reportDuplicates", false);
             findLowEnergyDevices(callbackContext, serviceUUIDs, -1);
 
-        } else if(action.equals(STOP_SENDINGTO_BLE)){
+        } else if (action.equals(STOP_SENDINGTO_BLE)) {
 
             isContinueSendToBLE = false;
 
-        }
-        else{
+        } else {
 
             validAction = false;
 
@@ -477,7 +489,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         IntentFilter filter = new IntentFilter(BluetoothGatt_Service_Ready_Action);
         cordova.getActivity().registerReceiver(gattReady, filter);
 
-        toWriteDate = data;
+        toWriteData = data;
 
         BluetoothManager mBluetoothManager = (BluetoothManager) cordova.getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter mBluetoothAdapter;
@@ -591,13 +603,13 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 });
                 */
 
-                Thread thread=new Thread(new Runnable() {
+                Thread thread = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        if ("1".equals(toWriteDate[1])) {
-                            writeDocGatt(toWriteDate[0]);
+                        if ("1".equals(toWriteData[1])) {
+                            writeDocGatt(toWriteData[0],toWriteData[2]);
                         } else {
-                            writeGatt(toWriteDate[0]);
+                            writeGatt(toWriteData[0], toWriteData[2]);
                         }
                     }
                 });
@@ -608,19 +620,36 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     };
 
 
-    private void writeGatt(String origion) {
+    private void writeGatt(String origion, String bleVersion) {
 
-        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
 
         int fullLength = origion.length();
 
+        int peroid = 40;
+        boolean isBleVersionOne = true;
+        String serviceId = HIDDongle_Service;
+        String charateristicId = HIDDongle_Write_Charateristic;
+
+        if (bleVersion.equals(BLE_VERSION_ONE)) {
+            isBleVersionOne = true;
+            peroid = 40;
+            serviceId = HMSoft_Service;
+            charateristicId = HMSoft_Write_Charateristic;
+        } else {
+            isBleVersionOne = false;
+            peroid = 40;
+        }
+
+        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(serviceId));
+        BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(charateristicId));
+
 
         try {
-            BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
+
+
             for (int index = 0; index < origion.length(); index++) {
 
-                if(!isContinueSendToBLE)
-                {
+                if (!isContinueSendToBLE) {
 
                     mBluetoothGatt.close();
                     mCallbackContext.success("发送已中断");
@@ -628,12 +657,10 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                 }
 
 
-                float percent = (float)(index * 100) / fullLength;
-                if(origion.length() == (index -1))
-                {
+                float percent = (float) (index * 100) / fullLength;
+                if (origion.length() == (index - 1)) {
                     updateBleProgress(100);
-                }
-                else {
+                } else {
                     updateBleProgress((int) percent);
                 }
 
@@ -650,7 +677,16 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                     int i = 0;
                     char[] character = oct.toCharArray();
                     for (char ch : character) {
-                        byte[] aformat = format.clone();
+                        byte[] aformat = null;
+
+                        if (isBleVersionOne) {
+                            aformat = formatV1.clone();
+                            aformat[0] = (byte) 0x83;
+                        }
+                        else{
+                            aformat = format.clone();
+                        }
+
                         aformat[1] = 0x04;
 
                         Integer pad_number = new Integer(String.valueOf(ch));
@@ -658,15 +694,25 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                             pad_number = 10;
                         }
 
-                        aformat[i + 3] = (byte) (pad_number + 88);
+                        if (!isBleVersionOne) {
+                            aformat[i + 3] = (byte) (pad_number + 88);
+                        } else {
+                            aformat[3] = (byte) (pad_number + 88);
+                        }
+
                         characteristic.setValue(aformat);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(40);
-                        characteristic.setValue(clearAlt);
+                        Thread.sleep(peroid);
+
+                        if (isBleVersionOne) {
+                            characteristic.setValue(clearAltV1);
+                        } else {
+                            characteristic.setValue(clearAlt);
+                        }
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(40);
+                        Thread.sleep(peroid);
 
                         i++;
                     }
@@ -679,15 +725,26 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                         assciToCode = KeyboardMapper.maps.get(13);
                     }
 
+                    if(isBleVersionOne){
+                        assciToCode[0] = (byte)0x83;
+                    }
+
                     characteristic.setValue(assciToCode);
 
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(40);
+                    Thread.sleep(peroid);
 
                 }
-                characteristic.setValue(empty);
+
+                if(isBleVersionOne) {
+                    characteristic.setValue(emptyV1);
+                }
+                else{
+                    characteristic.setValue(empty);
+                }
+
                 mBluetoothGatt.writeCharacteristic(characteristic);
-                Thread.sleep(40);
+                Thread.sleep(peroid);
 
 
             }
@@ -703,30 +760,45 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         mCallbackContext.success(100);
     }
 
-    private void writeDocGatt(String origion) {
-        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(HIDDongle_Service));
+    private void writeDocGatt(String origion,String bleVersion) {
+
+        int peroid = 40;
+        boolean isBleVersionOne = true;
+        String serviceId = HIDDongle_Service;
+        String charateristicId = HIDDongle_Write_Charateristic;
+
+        if (bleVersion.equals(BLE_VERSION_ONE)) {
+            isBleVersionOne = true;
+            peroid = 40;
+            serviceId = HMSoft_Service;
+            charateristicId = HMSoft_Write_Charateristic;
+        } else {
+            isBleVersionOne = false;
+            peroid = 40;
+        }
+
+        BluetoothGattService gattService = mBluetoothGatt.getService(UUID.fromString(serviceId));
+        BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(charateristicId));
+
 
         int fullLength = origion.length();
 
         try {
-            BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(UUID.fromString(HIDDongle_Write_Charateristic));
+
             for (int index = 0; index < origion.length(); index++) {
 
-                if(!isContinueSendToBLE)
-                {
+                if (!isContinueSendToBLE) {
 
                     mBluetoothGatt.close();
                     mCallbackContext.success("发送已中断");
                     break;
                 }
 
-                float percent = (float)(index * 100) / fullLength;
+                float percent = (float) (index * 100) / fullLength;
 
-                if(origion.length() == (index -1))
-                {
+                if (origion.length() == (index - 1)) {
                     updateBleProgress(100);
-                }
-                else {
+                } else {
                     updateBleProgress((int) percent);
                 }
 
@@ -734,37 +806,82 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
                 byte[] singleBytes = singleCharacter.getBytes("GB18030");
 
+
+
+
                 Integer singleCharacterLength = singleBytes.length;
                 if (singleCharacterLength > 1) {
                     String hex = bytesToHexString(singleCharacter.getBytes("UTF-16BE"));
                     String utf16Hex = new String(hex.getBytes("UTF-16BE"), "UTF-16BE");
+
+
+                    if(index>0){
+                        String perString = origion.substring(index-1,index);
+                        Integer preSigleCharacterLen = (new String(perString.getBytes("GB18030"), "GB18030")).length();
+
+                        if (singleCharacterLength>1 && preSigleCharacterLen == 1) {
+                            byte[] keycode = KeyboardMapper.maps.get(32).clone();
+                            if(isBleVersionOne){
+                                keycode[0] = (byte)0x83;
+                            }
+                            characteristic.setValue(keycode);
+                            mBluetoothGatt.writeCharacteristic(characteristic);
+                            Thread.sleep(peroid);
+                        }
+                    }
+
+
+
                     Log.d(TAG, " HEX is " + hex);
                     int i = 0;
                     char[] character = utf16Hex.toCharArray();
                     for (char ch : character) {
-                        byte[] aformat = format.clone();
+                        byte[] aformat = null;
+
+                        if(isBleVersionOne){
+                            aformat = formatV1.clone();
+                        }
+                        else{
+                            aformat = format.clone();
+                        }
 
                         aformat[1] = 0x00;
 
                         int asciiCode = (int) ch;
 
                         byte[] byteArray = KeyboardMapper.maps.get(asciiCode);
-                        aformat[i + 3] = byteArray[3];
+
+                        if(isBleVersionOne)
+                        {
+                            aformat[3] = byteArray[3];
+                        }
+                        else {
+                            aformat[i + 3] = byteArray[3];
+                        }
                         characteristic.setValue(aformat);
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(40);
-                        characteristic.setValue(empty);
+                        Thread.sleep(peroid);
+
+                        if(isBleVersionOne) {
+                            characteristic.setValue(emptyV1);
+                        }
+                        else{
+                            characteristic.setValue(empty);
+                        }
 
                         mBluetoothGatt.writeCharacteristic(characteristic);
-                        Thread.sleep(40);
+                        Thread.sleep(peroid);
 
                         i++;
                     }
-
-                    characteristic.setValue(KeyboardMapper.maps.get(132));
+                    byte[] altx = KeyboardMapper.maps.get(132);
+                    if(isBleVersionOne){
+                        altx[0] = (byte)0x83;
+                    }
+                    characteristic.setValue(altx);
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(40);
+                    Thread.sleep(peroid);
 
                 } else {
                     String hex = bytesToHexString(singleCharacter.getBytes("GB18030"));
@@ -775,15 +892,24 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
                         assciToCode = KeyboardMapper.maps.get(13);
                     }
 
+                    if(isBleVersionOne){
+                        assciToCode[0] = (byte)0x83;
+                    }
+
                     characteristic.setValue(assciToCode);
 
                     mBluetoothGatt.writeCharacteristic(characteristic);
-                    Thread.sleep(40);
+                    Thread.sleep(peroid);
 
                 }
-                characteristic.setValue(empty);
+                if(isBleVersionOne) {
+                    characteristic.setValue(emptyV1);
+                }
+                else{
+                    characteristic.setValue(empty);
+                }
                 mBluetoothGatt.writeCharacteristic(characteristic);
-                Thread.sleep(40);
+                Thread.sleep(peroid);
 
 
             }
@@ -980,7 +1106,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         }
     }
 
-    private void updateBleProgress(int  progress) {
+    private void updateBleProgress(int progress) {
         if (mCallbackContext != null) {
             PluginResult result = new PluginResult(PluginResult.Status.OK, progress);
             result.setKeepCallback(true);
