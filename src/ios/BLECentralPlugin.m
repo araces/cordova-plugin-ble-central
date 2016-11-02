@@ -419,7 +419,7 @@ if (discoverPeripherialCallbackId) {
 if (discoverPeripherialCallbackId) {
   CDVPluginResult *pluginResult = nil;
   pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:[peripheral asDictionary]];
-NSLog(@"Discovered %@", [peripheral asDictionary]);
+NSLog(@"Discovered %@", peripheral.name);
 [pluginResult setKeepCallbackAsBool:TRUE];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:discoverPeripherialCallbackId];
 }
@@ -922,14 +922,20 @@ pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageA
 
 
     -(void) wirteDataToBleWithWordMode{
+  NSThread *thread = [[NSThread alloc] initWithTarget:self selector:@selector(runWithThreadToSendBLE) object:nil];
+[thread start];
+}
+
+-(void) runWithThreadToSendBLE{
+
   if([isWord isEqualToString:@"1"]){
 [self convertToUTF8KeyCodeData];
 }
 else{
 [self convertToKeyCodeData];
 }
-}
 
+}
 /*!
 
 @abstract 转换NSData到16进制字符
@@ -993,7 +999,11 @@ for (int i = 0; i < gb18030String.length; i++) {
 
   if(!continueWriteData){
 
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
+    if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+[manager cancelPeripheralConnection:currentPeripheral];
+}
+
+CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
 
 return;
@@ -1059,6 +1069,12 @@ uint8_t releaseAll[1] = {0x00};
 }
 
 }
+
+if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+[manager cancelPeripheralConnection:currentPeripheral];
+}
+
+
 
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:100];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
@@ -1174,7 +1190,11 @@ int progress = i*100.0/(float)wordlength;
 
 if(!continueWriteData){
 
-  CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
+  if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+[manager cancelPeripheralConnection:currentPeripheral];
+}
+
+CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
 
 return;
@@ -1276,6 +1296,11 @@ uint8_t releaseAll[1] = {0x00};
 
 }
 
+if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+[manager cancelPeripheralConnection:currentPeripheral];
+}
+
+
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:100];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
 
@@ -1287,13 +1312,14 @@ CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStat
   CDVPluginResult *pluginResult = nil;
   pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:progress];
   [pluginResult setKeepCallbackAsBool:TRUE];
-  [self.commandDelegate sendPluginResult:pluginResult callbackId:discoverPeripherialCallbackId];
+  [self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
 
 }
 
 
-    - (void)stopSendDataToBLE:(CDVInvokedUrlCommand *)command{
+    - (void)stopSendingtoBle:(CDVInvokedUrlCommand *)command{
   continueWriteData = false;
+  NSLog(@"good lucky for break");
 }
 
 

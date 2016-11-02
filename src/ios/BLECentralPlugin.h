@@ -50,7 +50,7 @@
 - (void)read:(CDVInvokedUrlCommand *)command;
 - (void)write:(CDVInvokedUrlCommand *)command;
 - (void)writeExtraData:(CDVInvokedUrlCommand *)command;
-- (void)stopSendDataToBLE:(CDVInvokedUrlCommand *)command;
+- (void)stopSendingtoBle:(CDVInvokedUrlCommand *)command;
 - (void)writeWithoutResponse:(CDVInvokedUrlCommand *)command;
 
 - (void)startNotification:(CDVInvokedUrlCommand *)command;
