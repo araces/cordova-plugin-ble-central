@@ -40,6 +40,7 @@
   CBCharacteristic *currentCharacteristic;
 
   CDVInvokedUrlCommand *writeDataCommand;
+  CDVInvokedUrlCommand *stopWriteDataCommand;
 }
     - (CBPeripheral *)findPeripheralByUUID:(NSString *)uuid;
 - (void)stopScanTimer:(NSTimer *)timer;
@@ -1004,7 +1005,7 @@ for (int i = 0; i < gb18030String.length; i++) {
 }
 
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
-[self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
+[self.commandDelegate sendPluginResult:pluginResult callbackId:stopWriteDataCommand.callbackId];
 
 return;
 }
@@ -1197,7 +1198,8 @@ if(!continueWriteData){
 }
 
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
-[self.commandDelegate sendPluginResult:pluginResult callbackId:writeDataCommand.callbackId];
+[pluginResult setKeepCallbackAsBool:TRUE];
+[self.commandDelegate sendPluginResult:pluginResult callbackId:stopWriteDataCommand.callbackId];
 
 return;
 }
@@ -1346,6 +1348,7 @@ CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStat
 
     - (void)stopSendingtoBle:(CDVInvokedUrlCommand *)command{
   continueWriteData = false;
+  stopWriteDataCommand = command;
   NSLog(@"good lucky for break");
 }
 
