@@ -1130,15 +1130,17 @@ return  [[NSData alloc]initWithBytes:&keyString length:9];
 
   Byte *byteData = (Byte *)num.bytes;
 
-  if(sizeof(byteData) ==4)
-  {
-    keyString[3] = byteData[3];
-  }
-  else{
-    keyString[3] = byteData[0];
-  }
+  NSLog(@"bytelength is %lu",sizeof(byteData));
 
-  return  [[NSData alloc]initWithBytes:&keyString length:4];
+if(sizeof(byteData) ==8)
+{
+  keyString[3] = byteData[3];
+}
+else{
+  keyString[3] = byteData[0];
+}
+
+return  [[NSData alloc]initWithBytes:&keyString length:4];
 }
 
 -(NSData *)convertToDocDeviceVersionTwo:(NSData *)num forIndex:(int) index{
@@ -1148,7 +1150,7 @@ return  [[NSData alloc]initWithBytes:&keyString length:9];
 
   Byte *byteData = (Byte *)num.bytes;
 
-  if(sizeof(byteData) ==4)
+  if(sizeof(byteData) ==8)
   {
     keyString[index+3] = byteData[3];
   }
@@ -1215,16 +1217,16 @@ NSUInteger preSigleCharacterLen = [preSigleCharacter dataUsingEncoding:encodeGB]
 
 if (sigleCharacterLen>1 && preSigleCharacterLen == 1) {
   NSData *spaceKeyCode = [[KeyMapping sharedInstance].mapping objectForKey:@(32)];
-NSData *space =nil;
+//NSData *space =nil;
 
-if([deviceVersion isEqualToString:@"1"])
+    /*if([deviceVersion isEqualToString:@"1"])
 {
   space = [self convertToDocDeviceVersionOne:spaceKeyCode];
 }
 else{
   space = [self convertToDocDeviceVersionTwo:spaceKeyCode forIndex:0];
-}
-[currentPeripheral writeValue:space forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+}*/
+[currentPeripheral writeValue:spaceKeyCode forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
 
 [NSThread sleepForTimeInterval:0.04f];
 }
@@ -1237,10 +1239,34 @@ for (int j = 0; j < keyCodeTmp.length; j++) {
 
 NSString *num = [keyCodeTmp substringWithRange:NSMakeRange(j, 1)];
 int asciiCode = [num characterAtIndex:0];
+
 NSData *numCode = [[KeyMapping sharedInstance].mapping objectForKey:@(asciiCode)];
+if([deviceVersion isEqualToString:@"1"])
+{
 [keyCode appendBytes:numCode.bytes length:4];
 
-NSData *keyCodeFinal = nil;
+[currentPeripheral writeValue:keyCode forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+}
+else{
+  Byte finalKeycodes[] ={0x01,0,0,0,0,0,0,0,0};
+
+  Byte *byteData = (Byte *)numCode.bytes;
+
+  if(sizeof(byteData) == 8){
+    finalKeycodes[3] = byteData[3];
+  }
+  else{
+    finalKeycodes[3] = byteData[0];
+
+  }
+
+  [keyCode appendBytes:numCode.bytes length:9];
+
+  [currentPeripheral writeValue:keyCode forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+
+}
+    /*
+    NSData *keyCodeFinal = nil;
 
 if([deviceVersion isEqualToString:@"1"])
 {
@@ -1249,8 +1275,9 @@ if([deviceVersion isEqualToString:@"1"])
 else{
   keyCodeFinal = [self convertToDocDeviceVersionTwo:keyCode forIndex:j];
 }
-[currentPeripheral writeValue:keyCodeFinal forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
 
+[currentPeripheral writeValue:keyCodeFinal forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+*/
 [NSThread sleepForTimeInterval:0.04f];
 
 NSMutableData *endMark = [NSMutableData new];
