@@ -991,6 +991,8 @@ NSLog(@"convertToKeyCodeData start");
 
 NSUInteger wordlength = gb18030String.length;
 
+Byte emptyAltKeyString[] = {0x01,0x04,0,0,0,0,0,0,0};
+NSData *emptyAltData = [[NSData alloc] initWithBytes:emptyAltKeyString length:9];
 
 for (int i = 0; i < gb18030String.length; i++) {
 
@@ -1000,13 +1002,13 @@ for (int i = 0; i < gb18030String.length; i++) {
 
   if(!continueWriteData){
 
-    if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+    if (currentPeripheral && currentPeripheral.state == CBPeripheralStateConnected) {
 [manager cancelPeripheralConnection:currentPeripheral];
+continueWriteData = YES;
 }
 
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:stopWriteDataCommand.callbackId];
-
 return;
 }
 
@@ -1021,7 +1023,7 @@ if (sigleCharacterLen > 1) {
 UInt64 octCode = strtoul([hex UTF8String], 0, 16); // convert to oct
 
 NSString *keyCodeTmp = [NSString stringWithFormat:@"%lld", octCode];
-
+NSLog(@"%@ is %@",sigleCharacter,keyCodeTmp);
 for (int j = 0; j < keyCodeTmp.length; j++) {
 
   NSString *num = [keyCodeTmp substringWithRange:NSMakeRange(j, 1)];
@@ -1030,13 +1032,18 @@ NSData *data = nil;
 
 if([deviceVersion isEqualToString:@"1"]){
   data = [self convertToDeviceVersionOne:num];
+[currentPeripheral writeValue:data forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+[NSThread sleepForTimeInterval:0.03f];
 }
 else{
   data = [self convertToDeviceVersionTwo:num forIndex:j];
-}
-
 [currentPeripheral writeValue:data forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
 [NSThread sleepForTimeInterval:0.04f];
+[currentPeripheral writeValue:emptyAltData forCharacteristic:currentCharacteristic type:CBCharacteristicWriteWithoutResponse];
+[NSThread sleepForTimeInterval:0.04f];
+}
+
+
 }
 
 NSMutableData *endMark = [NSMutableData new];
@@ -1193,12 +1200,12 @@ int progress = i*100.0/(float)wordlength;
 
 if(!continueWriteData){
 
-  if (currentPeripheral && currentPeripheral.state != CBPeripheralStateDisconnected) {
+  if (currentPeripheral && currentPeripheral.state == CBPeripheralStateConnected) {
 [manager cancelPeripheralConnection:currentPeripheral];
+continueWriteData = YES;
 }
 
 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"发送已中断"];
-[pluginResult setKeepCallbackAsBool:TRUE];
 [self.commandDelegate sendPluginResult:pluginResult callbackId:stopWriteDataCommand.callbackId];
 
 return;
@@ -1347,7 +1354,7 @@ CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStat
 
 
     - (void)stopSendingtoBle:(CDVInvokedUrlCommand *)command{
-  continueWriteData = false;
+  continueWriteData = NO;
   stopWriteDataCommand = command;
   NSLog(@"good lucky for break");
 }
